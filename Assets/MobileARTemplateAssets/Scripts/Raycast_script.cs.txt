@@ -1,0 +1,90 @@
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.XR.ARFoundation;
+using UnityEngine.XR.ARSubsystems;
+
+public class Raycast_script : MonoBehaviour
+{
+    public GameObject spawn_prefab; // Corrected typo in variable name
+
+    private GameObject spawned_object;
+    private bool object_spawned;
+    private ARRaycastManager arRaycastManager;
+
+    private Vector2 first_touch;
+    private Vector2 second_touch;
+
+    private float distance_current;
+    private float distance_previous;
+
+    private bool first_pinch = true;
+    private List<ARRaycastHit> hits = new List<ARRaycastHit>();
+
+    // Start is called once before the first execution of Update after the MonoBehaviour is created
+    void Start()
+    {
+        object_spawned = false;
+        arRaycastManager = GetComponent<ARRaycastManager>();
+
+        if (arRaycastManager == null)
+        {
+            Debug.LogError("ARRaycastManager is missing from the GameObject.");
+        }
+    }
+
+    // Update is called once per frame
+    #pragma warning disable IDE0051 // Suppress warning about unused private method
+    void Update()
+    {
+        HandleSingleTouch();
+        HandlePinchToScale();
+    }
+    #pragma warning restore IDE0051
+
+    // Handles single touch for spawning the object
+    private void HandleSingleTouch()
+    {
+        if (Input.touchCount == 1 && !object_spawned)
+        {
+            Touch touch = Input.GetTouch(0);
+
+            if (arRaycastManager.Raycast(touch.position, hits, TrackableType.PlaneWithinPolygon))
+            {
+                var hitPose = hits[0].pose;
+                spawned_object = Instantiate(spawn_prefab, hitPose.position, hitPose.rotation);
+                object_spawned = true;
+            }
+        }
+    }
+
+    // Handles pinch gesture to scale the object
+    private void HandlePinchToScale()
+    {
+        if (Input.touchCount == 2 && object_spawned)
+        {
+            first_touch = Input.GetTouch(0).position;
+            second_touch = Input.GetTouch(1).position;
+
+            distance_current = Vector2.Distance(first_touch, second_touch);
+
+            if (first_pinch)
+            {
+                distance_previous = distance_current;
+                first_pinch = false;
+            }
+
+            if (Mathf.Abs(distance_current - distance_previous) > Mathf.Epsilon) // Avoid small unnecessary changes
+            {
+                float scale_factor = distance_current / distance_previous;
+                Vector3 new_scale = spawned_object.transform.localScale * scale_factor;
+                spawned_object.transform.localScale = new_scale;
+
+                distance_previous = distance_current;
+            }
+        }
+        else
+        {
+            first_pinch = true; // Reset pinch state when touch count is less than 2
+        }
+    }
+}
