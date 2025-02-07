@@ -1,0 +1,14 @@
+# Ignore Unity auto-generated folders
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+
+# Ignore OS-specific files
+.DS_Store
+Thumbs.db
+
+# Ignore user-specific files
+*.userprefs
