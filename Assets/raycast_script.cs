@@ -3,109 +3,111 @@ using UnityEngine;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 
-public class Raycast_script : MonoBehaviour
+[RequireComponent(typeof(ARRaycastManager), typeof(ARPlaneManager))]
+public class ARObjectPlacer : MonoBehaviour
 {
-    public GameObject spawn_prefab;
+    [SerializeField] private GameObject spawnPrefab;
+    [SerializeField] private bool disablePlaneDetectionAfterSpawn = true;
 
-    private GameObject spawned_object;
-    private bool object_spawned;
+    private GameObject spawnedObject;
     private ARRaycastManager arRaycastManager;
     private ARPlaneManager arPlaneManager;
+    private bool isObjectSpawned;
+    private Vector2[] touchPositions = new Vector2[2];
+    private float previousTouchDistance;
 
-    private Vector2 first_touch;
-    private Vector2 second_touch;
+    private static readonly List<ARRaycastHit> hits = new List<ARRaycastHit>();
 
-    private float distance_current;
-    private float distance_previous;
-
-    private bool first_pinch = true;
-    private List<ARRaycastHit> hits = new List<ARRaycastHit>();
-
-    void Start()
+    private void Awake()
     {
-        object_spawned = false;
         arRaycastManager = GetComponent<ARRaycastManager>();
         arPlaneManager = GetComponent<ARPlaneManager>();
+    }
 
-        if (arRaycastManager == null)
+    private void Update()
+    {
+        if (!isObjectSpawned && TryGetTouchPosition(out Vector2 touchPosition))
         {
-            Debug.LogError("ARRaycastManager is missing from the GameObject.");
+            HandleObjectPlacement(touchPosition);
         }
 
-        if (arPlaneManager == null)
+        if (isObjectSpawned && Input.touchCount == 2)
         {
-            Debug.LogError("ARPlaneManager is missing from the GameObject.");
+            HandleObjectScaling();
         }
     }
 
-    void Update()
+    private bool TryGetTouchPosition(out Vector2 touchPosition)
     {
-        HandleSingleTouch();
-        HandlePinchToScale();
+        if (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Began)
+        {
+            touchPosition = Input.GetTouch(0).position;
+            return true;
+        }
+        touchPosition = default;
+        return false;
     }
 
-    private void HandleSingleTouch()
+    private void HandleObjectPlacement(Vector2 touchPosition)
     {
-        if (Input.touchCount == 1 && !object_spawned)
+        if (arRaycastManager.Raycast(touchPosition, hits, TrackableType.PlaneWithinPolygon))
         {
-            Touch touch = Input.GetTouch(0);
+            var hitPose = hits[0].pose;
+            var plane = arPlaneManager.GetPlane(hits[0].trackableId);
 
-            // Raycast to detect planes (horizontal and vertical included in PlaneWithinPolygon)
-            if (arRaycastManager.Raycast(touch.position, hits, TrackableType.PlaneWithinPolygon))
+            if (plane != null)
             {
-                var hitPose = hits[0].pose;
-                var hitTrackableId = hits[0].trackableId;
-
-                // Get the ARPlane associated with the hit
-                var plane = arPlaneManager.GetPlane(hitTrackableId);
-
-                if (plane != null)
+                spawnedObject = Instantiate(spawnPrefab, hitPose.position, hitPose.rotation);
+                isObjectSpawned = true;
+                
+                if (disablePlaneDetectionAfterSpawn)
                 {
-                    // Check plane alignment
-                    if (plane.alignment == PlaneAlignment.HorizontalUp || plane.alignment == PlaneAlignment.HorizontalDown)
-                    {
-                        Debug.Log("Horizontal plane detected.");
-                    }
-                    else if (plane.alignment == PlaneAlignment.Vertical)
-                    {
-                        Debug.Log("Vertical plane detected.");
-                    }
-
-                    // Spawn object at the hit position
-                    spawned_object = Instantiate(spawn_prefab, hitPose.position, hitPose.rotation);
-                    object_spawned = true;
+                    TogglePlaneDetection(false);
                 }
+
+                Debug.Log($"Object placed on {plane.alignment} plane");
             }
         }
     }
 
-    private void HandlePinchToScale()
+    private void HandleObjectScaling()
     {
-        if (Input.touchCount == 2 && object_spawned)
+        Touch touch0 = Input.GetTouch(0);
+        Touch touch1 = Input.GetTouch(1);
+
+        if (touch0.phase == TouchPhase.Moved || touch1.phase == TouchPhase.Moved)
         {
-            first_touch = Input.GetTouch(0).position;
-            second_touch = Input.GetTouch(1).position;
+            touchPositions[0] = touch0.position;
+            touchPositions[1] = touch1.position;
 
-            distance_current = Vector2.Distance(first_touch, second_touch);
-
-            if (first_pinch)
+            float currentTouchDistance = Vector2.Distance(touchPositions[0], touchPositions[1]);
+            
+            if (previousTouchDistance > 0)
             {
-                distance_previous = distance_current;
-                first_pinch = false;
+                float scaleFactor = currentTouchDistance / previousTouchDistance;
+                spawnedObject.transform.localScale *= scaleFactor;
             }
-
-            if (Mathf.Abs(distance_current - distance_previous) > Mathf.Epsilon) // Avoid small unnecessary changes
-            {
-                float scale_factor = distance_current / distance_previous;
-                Vector3 new_scale = spawned_object.transform.localScale * scale_factor;
-                spawned_object.transform.localScale = new_scale;
-
-                distance_previous = distance_current;
-            }
+            previousTouchDistance = currentTouchDistance;
         }
-        else
+        else if (touch0.phase == TouchPhase.Ended || touch1.phase == TouchPhase.Ended)
         {
-            first_pinch = true; // Reset pinch state when touch count is less than 2
+            previousTouchDistance = 0;
         }
+    }
+
+    private void TogglePlaneDetection(bool enable)
+    {
+        arPlaneManager.enabled = enable;
+        foreach (var plane in arPlaneManager.trackables)
+        {
+            plane.gameObject.SetActive(enable);
+        }
+    }
+
+    public void ResetSession()
+    {
+        if (spawnedObject != null) Destroy(spawnedObject);
+        isObjectSpawned = false;
+        TogglePlaneDetection(true);
     }
 }

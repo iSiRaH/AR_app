@@ -69,8 +69,10 @@
     <Compile Include="Assets\MobileARTemplateAssets\Scripts\ARTemplateMenuManager.cs" />
     <Compile Include="Assets\MobileARTemplateAssets\Scripts\ARFeatheredPlaneMeshVisualizerCompanion.cs" />
     <Compile Include="Assets\MobileARTemplateAssets\Scripts\GoalManager.cs" />
+    <Compile Include="Assets\Scripts\QuitScript.cs" />
     <Compile Include="Assets\Settings\Project Configuration\SceneTemplate_RotateCube.cs" />
     <Compile Include="Assets\raycast_script.cs" />
+    <Compile Include="Assets\Scripts\SwitchScene.cs" />
     <Compile Include="Assets\Scripts\ScreenshotHandler.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -1310,6 +1312,10 @@
     </Reference>
     <Reference Include="Unity.RenderPipelines.Universal.Runtime">
       <HintPath>Library\ScriptAssemblies\Unity.RenderPipelines.Universal.Runtime.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Unity.2D.Sprite.Editor">
+      <HintPath>Library\ScriptAssemblies\Unity.2D.Sprite.Editor.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Unity.TextMeshPro.Editor">
